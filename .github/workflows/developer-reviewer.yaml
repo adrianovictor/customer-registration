@@ -4,6 +4,13 @@ on:
   pull_request:
     branches:
       - develop
+    types: [opened, synchronize, reopened]
+
+  # Roda a geração do changelog SOMENTE quando a PR é mergeada em 'develop'
+  pull_request_target:
+    types: [closed]
+    branches:
+      - develop      
 
 jobs:
   review:
@@ -108,4 +115,60 @@ jobs:
           else
             echo "✅ Nenhum problema crítico detectado pelo Gemini."
           fi
-                       
+         
+  changelog:
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    # Permissão necessária para commitar o CHANGELOG.md de volta
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: ⬇️ Checkout develop branch
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          token: ${{ secrets.GIT_TOKEN }} # Use o token com permissão de escrita
+
+      - name: 📥 Extract Changelog Data from PR Description
+        id: extract
+        env:
+          AI_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # ... (Outras extrações)
+          # Chama o script Python, passando o prompt, título e corpo
+          CHANGELOG_ITEM=$(python scripts/generate_changelog.py \
+            --prompt-file scripts/changelog_prompt.txt \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --api-key "$AI_KEY")
+            
+          echo "changelog_item=$CHANGELOG_ITEM" >> $GITHUB_OUTPUT
+
+      - name: 📁 Define Paths and Create Directory
+        id: paths
+        run: |
+          echo "CHANGELOG_PATH=changelogs/CHANGELOG.md" >> $GITHUB_OUTPUT
+          mkdir -p changelogs
+
+      - name: 📝 Append New Changelog Entry
+        run: |
+          CHANGELOG_PATH="${{ steps.paths.outputs.CHANGELOG_PATH }}"
+          NEW_ENTRY="${{ steps.extract.outputs.changelog_item }}"
+          
+          # Cria o arquivo se não existir e anexa o novo item
+          if [ ! -f "$CHANGELOG_PATH" ]; then
+            echo "# Histórico de Mudanças" > "$CHANGELOG_PATH"
+            echo "" >> "$CHANGELOG_PATH"
+          fi
+          
+          echo "$NEW_ENTRY" >> "$CHANGELOG_PATH"
+          echo "" >> "$CHANGELOG_PATH"
+
+      - name: 💾 Commit and Push Changelog
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "build(changelog): Atualiza CHANGELOG para merge de #${{ github.event.pull_request.number }}"
+          file_pattern: "changelogs/CHANGELOG.md"
+          token: ${{ secrets.GIT_TOKEN }}
