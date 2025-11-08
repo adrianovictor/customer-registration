@@ -131,6 +131,11 @@ jobs:
           ref: develop
           token: ${{ secrets.GIT_TOKEN }} # Use o token com permissão de escrita
 
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: 📥 Extract Changelog Data from PR Description
         id: extract
         env:
