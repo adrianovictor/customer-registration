@@ -1,0 +1,111 @@
+name: Code Review by Gemini AI
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get PR diff
+        id: get_diff
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          git diff origin/${{ github.event.pull_request.base.ref }} origin/${{ github.event.pull_request.head.ref }} > diff.txt
+          echo "pull_request_diff<<EOF" >> $GITHUB_OUTPUT
+          cat diff.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Code Review by Gemini AI
+        uses: rubensflinco/gemini-code-review-action@1.0.5
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_repository: ${{ github.repository }}
+          github_pull_request_number: ${{ github.event.pull_request.number }}
+          git_commit_hash: ${{ github.event.pull_request.head.sha }}
+          model: "gemini-2.0-flash"
+          pull_request_diff: ${{ steps.get_diff.outputs.pull_request_diff }}
+          pull_request_chunk_size: "3500"
+          extra_prompt: |
+            **PARTE 1: DIRETRIZES E PERSONA DO REVISOR**
+
+            Você é um Engenheiro de Software Sênior com profunda expertise em arquitetura de aplicações .NET Core 9, padrões de projeto, Clean Code, e metodologias de desenvolvimento ágil. Sua função é atuar como um Revisor de Pull Request (PR) rigoroso e construtivo, simulando o comportamento de um revisor humano experiente.
+
+            **Foco da Análise e Validação:**
+
+            1.  **Arquitetura e Padrões (.NET Core 9 / CQRS):**
+                * Valide a adesão aos princípios arquiteturais do .NET Core 9 (injeção de dependência, middleware, configuração).
+                * **CQRS:** Confirme a segregação clara entre Commands (modificações) e Queries (obtenção), e se a implementação do Mediator (se aplicável) está correta e dentro do padrão.
+
+            2.  **Clean Code e Princípios SOLID:**
+                * Verifique a adesão rigorosa ao SOLID, com atenção especial ao **SRP** (Single Responsibility Principle) e **DIP** (Dependency Inversion Principle).
+                * Avalie a nomenclatura (concisa, descritiva, padrão .NET - PascalCase/camelCase) e a clareza do código.
+                * Identifique métodos complexos ou longos, sugerindo refatoração.
+                * A sintaxe deve utilizar recursos modernos e idiomáticos do C#.
+
+            3.  **Qualidade e Performance:**
+                * Verifique o tratamento específico de exceções.
+                * Identifique potenciais problemas de performance (alocação, consultas ineficientes).
+
+            **Formato de Comentários (Fluxo de Trabalho Obrigatório):**
+
+            Seu output deve simular o formato de uma revisão humana no GitHub, sendo dividido em blocos claros para facilitar a leitura e o processamento:
+
+            1.  **Início:** Comece com um cabeçalho de **Resumo Inicial da Revisão** sobre o entendimento geral do PR.
+            2.  **Corpo da Revisão (Arquivo a Arquivo):** Percorra e comente o código **arquivo a arquivo**. Para cada arquivo que necessite de comentários, use um cabeçalho de nível 3 (`###`) com o caminho completo do arquivo.
+            3.  **Comentários de Linha:** Dentro de cada bloco de arquivo, adicione comentários **SOMENTE** sobre problemas, melhorias ou pedidos de esclarecimento, usando o formato específico: `[Linha: X] <Emoji> [Descrição do Problema]`
+            4.  **Conclusão:** Finalize com um cabeçalho de **Conclusão da Revisão** (Aprovado, Rejeitado, Aprovado com Sugestões).
+
+            ---
+            **PARTE 2: CONTEÚDO DO PULL REQUEST A SER REVISADO**
+
+            **Descrição do PR (Contexto):** O PR "Feature/NovoUsuario" adiciona a funcionalidade de criação de um novo usuário, incluindo um Command Handler para persistência e um Controller para expor o endpoint POST /api/users.
+
+            **Modificações do Código (DIFERENÇA UNIFICADA OU CÓDIGO COMPLETO):**
+
+            **Arquivo:** `src/Application/Users/CreateUserCommand.cs`
+            ```csharp
+            namespace Application.Users;
+
+            public class CreateUserCommand : IRequest<int>
+            {
+                public string Name { get; set; }
+                public string Email { get; set; }
+                // A classe aqui é intencionalmente pequena.
+            }
+          log_level: "DEBUG"
+
+      - name: Salvar resposta da Gemini
+        run: |
+          echo "${{ steps.gemini_review.outputs.gemini_log }}" > gemini_log.txt
+
+      - name: Simular estrutura JSON básica de erro (temporário até a action suportar JSON real)
+        run: |
+          if grep -q "🚨 PROBLEMA CRÍTICO" gemini_log.txt; then
+            echo '{ "status": "error", "severity": "critical", "message": "Problema crítico detectado pelo Gemini." }' > gemini-result.json
+          else
+            echo '{ "status": "ok" }' > gemini-result.json
+          fi
+
+      - name: Verificar problemas críticos
+        run: |
+          STATUS=$(jq -r '.status' gemini-result.json)
+          MSG=$(jq -r '.message' gemini-result.json)
+
+          if [ "$STATUS" == "error" ]; then
+            echo "::error title=Erro do Gemini::$MSG"
+            exit 1
+          else
+            echo "✅ Nenhum problema crítico detectado pelo Gemini."
+          fi
+                       
