@@ -16,6 +16,15 @@ public class Customer : Entity<Customer>
 
     public Customer(string name, string email, string passwordHash, string phoneNumber, CustomerStatus status = CustomerStatus.HasChangePassword)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty.", nameof(name));
+
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
+            
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new ArgumentException("Password hash cannot be empty.", nameof(passwordHash));
+
         Name = name;
         Email = email;
         PasswordHash = passwordHash;
