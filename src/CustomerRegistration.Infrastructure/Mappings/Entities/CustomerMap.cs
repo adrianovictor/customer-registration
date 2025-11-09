@@ -15,5 +15,6 @@ public class CustomerMap : EntityMap<Customer>
         builder.Property(_ => _.PhoneNumber).IsRequired().HasMaxLength(15);
         builder.Property(_ => _.LastLoginAt).HasColumnType("datetime2");
         builder.Property(_ => _.Status).IsRequired();
+        builder.HasMany(_ => _.Addresses).WithOne(_ => _.Customer).HasForeignKey(_ => _.CustomerId);
     }
 }
