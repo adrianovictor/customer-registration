@@ -67,23 +67,6 @@ jobs:
             3.  **Comentários de Linha:** Dentro de cada bloco de arquivo, adicione comentários **SOMENTE** sobre problemas, melhorias ou pedidos de esclarecimento, usando o formato específico: `[Linha: X] <Emoji> [Descrição do Problema]`
             4.  **Conclusão:** Finalize com um cabeçalho de **Conclusão da Revisão** (Aprovado, Rejeitado, Aprovado com Sugestões).
 
-            ---
-            **PARTE 2: CONTEÚDO DO PULL REQUEST A SER REVISADO**
-
-            **Descrição do PR (Contexto):** O PR "Feature/NovoUsuario" adiciona a funcionalidade de criação de um novo usuário, incluindo um Command Handler para persistência e um Controller para expor o endpoint POST /api/users.
-
-            **Modificações do Código (DIFERENÇA UNIFICADA OU CÓDIGO COMPLETO):**
-
-            **Arquivo:** `src/Application/Users/CreateUserCommand.cs`
-            ```csharp
-            namespace Application.Users;
-
-            public class CreateUserCommand : IRequest<int>
-            {
-                public string Name { get; set; }
-                public string Email { get; set; }
-                // A classe aqui é intencionalmente pequena.
-            }
             
           log_level: "DEBUG"
 
