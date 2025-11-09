@@ -5,12 +5,15 @@ namespace CustomerRegistration.Domain.Entities;
 
 public class Customer : Entity<Customer>
 {
+    private readonly List<Addresses> _addresses = [];
+
     public string Name { get; protected set; }
     public string Email { get; protected set; }
     public string PasswordHash { get; protected set; }
     public string PhoneNumber { get; protected set; }
     public DateTime? LastLoginAt { get; protected set; }
     public CustomerStatus Status { get; protected set; }
+    public IReadOnlyCollection<Addresses> Addresses => _addresses.AsReadOnly();
 
     protected Customer() { }
 
@@ -87,8 +90,30 @@ public class Customer : Entity<Customer>
         UpdateStatus(CustomerStatus.Inactive);
     }
 
-    public void Suspended() 
+    public void Suspended()
     {
         UpdateStatus(CustomerStatus.Suspended);
+    }
+
+    public void AddAddress(Addresses address)
+    {
+        if (address == null)
+            throw new ArgumentNullException(nameof(address), "Address cannot be null.");
+
+        if (_addresses.Contains(address))
+            throw new InvalidOperationException("Address already exists for this customer.");
+
+        _addresses.Add(address);
+    }
+    
+    public void RemoveAddress(Addresses address)
+    {
+        if (address == null)
+            throw new ArgumentNullException(nameof(address), "Address cannot be null.");
+
+        if (!_addresses.Contains(address))
+            throw new InvalidOperationException("Address does not exist for this customer.");
+
+        _addresses.Remove(address);
     }
 }
